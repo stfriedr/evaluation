@@ -6,14 +6,17 @@ Created on 08.03.2020
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import datetime as dt
 import numpy as np
+import pylab as pl
 
-filepath_base = 'C:/Users/49157/Desktop/Simulationsergebnisse/Sim_complete'
-filepath_log = os.path.join(filepath_base,'log_complete.csv')
-filepath_forecast = os.path.join(filepath_base,'kpi_forecast_complete.csv')
-filepath_control = os.path.join(filepath_base,'kpi_control_complete.csv')
+logdir = os.path.join(os.getcwd(),'sim_results')
+filepath_log = os.path.join(logdir,'log_complete.csv')
+filepath_forecast = os.path.join(logdir,'kpi_forecast_complete.csv')
+filepath_control = os.path.join(logdir,'kpi_control_complete.csv')
 
-df_log = pd.read_csv(filepath_log, sep=';', decimal='.', index_col='time')
+df_log = pd.read_csv(filepath_log, sep=';', decimal=',', index_col='time')
+df_log.index = pd.to_datetime(df_log.index)
 
 df_c = pd.read_csv(filepath_control, sep=';', decimal='.', index_col = 'start')
 df_c.index = pd.to_datetime(df_c.index)
@@ -22,61 +25,67 @@ df_f = pd.read_csv(filepath_forecast, sep=';', decimal='.', index_col = 'time')
 df_f.index = pd.to_datetime(df_f.index)
 
 
-''' remove double data from control KPI'''
-# df = pd.DataFrame({'start': [],
-#                    'stop': [],
-#                    'kpi forecast': [],
-#                    'kpi standard': []})
-# 
-# for i in range(df_c.__len__()-1):
-#     if df_c.index[i] != df_c.index[i+1]:
-#         results = pd.DataFrame({'start': [df_c.index[i]],
-#                                 'stop': [df_c.iloc[i]['stop']],
-#                                 'kpi forecast': [df_c.iloc[i]['kpi forecast']],
-#                                 'kpi standard': [df_c.iloc[i]['kpi standard']]})
-# 
-#         df = df.append(results)
-#         
-# df.set_index('start')
-# df.to_csv('C:/Users/49157/Desktop/Simulationsergebnisse/Sim_complete/kpi_control_comp2.csv', sep = ';', decimal=',')
+''' ---------- forecast evaluation  - boxplots ----------'''
+
+fig = pl.figure()
+ax = pl.axes()
+for i in range(10):
+    month = df_f.loc[dt.datetime(2018,2+i,1):dt.datetime(2018,3+i,1)]
+    pl.boxplot(month['2h_median'].get_values(), positions = [i+1], showfliers = False)
+
+month = df_f.loc[dt.datetime(2018,12,1):dt.datetime(2018,12,31)]
+pl.boxplot(month['2h_median'].get_values(), positions = [11], showfliers = False)
+    
+ax.set_xticklabels(['Feb', 'Mar', 'Apr', 'Mai','Jun','Jul','Aug','Sep','Oct','Nov','Dez'])
+pl.grid()
+pl.ylim([-.7,.7])
+pl.title('forecast-KPI during the next two hours')   
+
+
+fig = pl.figure()
+ax = pl.axes()
+for i in range(10):
+    month = df_f.loc[dt.datetime(2018,2+i,1):dt.datetime(2018,3+i,1)]
+    pl.boxplot(month['24h_median'].get_values(), positions = [i+1], showfliers = False)
+
+month = df_f.loc[dt.datetime(2018,12,1):dt.datetime(2018,12,31)]
+pl.boxplot(month['24h_median'].get_values(), positions = [11], showfliers = False)
+    
+ax.set_xticklabels(['Feb', 'Mar', 'Apr', 'Mai','Jun','Jul','Aug','Sep','Oct','Nov','Dez'])
+pl.grid()
+pl.ylim([-.7,.7])
+pl.title('forecast-KPI during the next 24 hours')
 
 
 
-plt.figure(1)
+''' ---------- control evaluation ----------'''
+plt.figure(3)
 plt.title('evaluation - control')
-plt.plot(df_c['kpi forecast'], label = 'kpi forecast')
-plt.plot(df_c['kpi standard'], label = 'kpi standard')
-plt.plot(df_c['kpi forecast']-df_c['kpi standard'], label = 'diff')
-plt.legend()
+csv_mean = df_log.groupby(df_log.index.time).mean()
+plt.plot(csv_mean['IO'], label = 'IO results')
 plt.grid()
 
 print(' ----- controlling results ----- \n')
-print('cost forecast control: {}'.format(sum(df_c['kpi forecast'])))
-print('cost standard control: {}'.format(sum(df_c['kpi standard'])))
+print('Cost forecast control: {}'.format(sum(df_c['kpi forecast'])))
+print('Cost two-point control: {}'.format(sum(df_c['kpi standard'])))
 
+c = df_log['IO'].get_values()
+BI = (df_log['bi'].get_values()+1)/2
 
-plt.figure(2)
-plt.title('evaluation - 24h forecast')
-plt.plot(df_f['24h_median'], label = '24h median')
-plt.plot(df_f['24h_quartil_25'], 'k--', linewidth = 0.5, label = 'quartile low')
-plt.plot(df_f['24h_quartil75'], 'k--', linewidth = 0.5, label = 'quartil high')
-plt.legend()
-plt.grid()
+e = 0
+for i in range(len(BI)):
+    e = e +((1-BI[i])*10 +20)*c[i]
+print('\n Total costs [Euro]= ',e*0.00833/100,'Euro')
 
-
-plt.figure(3)
-plt.title('evaluation - 2h forecast')
-plt.plot(df_f['2h_median'], label = '2h median')
-plt.plot(df_f['2h_quartil_25'], 'k--', linewidth = 0.5, label = 'quartile low')
-plt.plot(df_f['2h_quartil75'], 'k--', linewidth = 0.5, label = 'quartil high')
-plt.legend()
-plt.grid()
 
 
 # Praediktionsfehler nach Tageszeit
+# plt.figure(4)
+# forecast_mean = df_f.groupby(df_f.index.time).mean()
+# plt.plot(forecast_mean['2h_median'])
+# plt.plot(forecast_mean['6h_median'])
+# plt.plot(forecast_mean['12h_median'])
+# plt.plot(forecast_mean['24h_median'])
 
 
-
-plt.pause(0.1)
-
-
+plt.show()
